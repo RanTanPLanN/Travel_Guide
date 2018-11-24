@@ -3,9 +3,12 @@ import numpy as np
 import os
 import random
 import matplotlib
+import webbrowser
+import urllib3
+
 
 class Country:
-    def __init__(self,name, willingness,continent):
+    def __init__(self, name, willingness,continent):
         self.name = name
         self.willingness = willingness
         self.continent = continent
@@ -26,6 +29,8 @@ def NextDestinations():
     # load all the countries into dataframe
     countries = pd.read_excel(loadFile, skiprows=0, header=0,sheet_name=0, usecols="A:E")
     countries.set_index(keys='country', drop=False, inplace=True)
+
+    countries.set_index(keys='country', drop=True, inplace=True)
 
     # create random durations for couontries. This will be removed when deciding on a duration for each country.
     countries['duration'] = random.sample(range(1,1000000),len(countries))
@@ -60,21 +65,38 @@ def NextDestinations():
 
         # pick a random number that corresponds to the country
         iindx = random.randint(0,len(contData)-1)
-        selectCountry = contData.iloc[iindx, :]
+        selectCountry = contData.iloc[iindx:iindx+1, :]
 
         # this is just a test that the class object works fine. It will be removed.
-        tempCountry = Country(selectCountry['country'], selectCountry['willingness'], selectCountry['continent'])
+        tempCountry = Country(name=selectCountry.index[0], willingness=selectCountry['willingness'], continent=selectCountry['continent'])
         tempCountry.status()
 
         # append selected countries in a list
         options.append(selectCountry)
 
     # concat list with selected countries and sort them based on 'willingness'
-    SixCountries = pd.concat(options,axis='columns').T
+    SixCountries = pd.concat(options,axis='index')
     SixCountries.sort_values(by='willingness', inplace=True, ascending=False)
 
     # print the 6 selected countries.
-    print(SixCountries['country'])
+    print(SixCountries.index.tolist())
+
+    # pick winner
+    winner = SixCountries.iloc[:1,:]
+
+    # check if website exists for this country exists in Lonely Planet
+    searchStr = winner.index[0].replace(" ", "-").lower()
+    http = urllib3.PoolManager()
+    r = http.request('GET', 'https://www.lonelyplanet.com/' + searchStr)
+
+    # if it exists, re-direct user to the lonely planet website about the country
+    if r.status == 200:
+        webbrowser.open('https://www.lonelyplanet.com/' + searchStr)
+
+    # if it doesnt exist, search lonely planet for threads related to the country
+    else:
+        webbrowser.open('https://www.lonelyplanet.com/search?q=' + searchStr)
+
 
     print('end')
 
