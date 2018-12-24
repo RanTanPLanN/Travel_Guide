@@ -8,7 +8,7 @@ import urllib3
 
 
 class Country:
-    def __init__(self, name, willingness,continent):
+    def __init__(self, name, willingness, continent):
         self.name = name
         self.willingness = willingness
         self.continent = continent
@@ -18,23 +18,26 @@ class Country:
         print('I want to go to ' + self.name + ', ' + self.continent + ' ' + str(self.willingness))
 
 
-
 def NextDestinations():
     # read excel sheet with countries
-    basePath = r'C:\Users\nico\Dropbox\World_Travel_app'
+    basePath = os.getcwd()
     fileName = 'World_Travel_nikos.xlsx'
 
     loadFile = os.path.normpath(basePath + '/' + fileName)
 
     # load all the countries into dataframe
-    countries = pd.read_excel(loadFile, skiprows=0, header=0,sheet_name=0, usecols="A:E")
-    countries.set_index(keys='country', drop=False, inplace=True)
-
+    countries = pd.read_excel(loadFile, skiprows=0, header=0, sheet_name=0, usecols="A:E")
     countries.set_index(keys='country', drop=True, inplace=True)
 
     # create random durations for couontries. This will be removed when deciding on a duration for each country.
-    countries['duration'] = random.sample(range(1,1000000),len(countries))
-    countries['duration'] = countries['duration']%4
+    countries['duration'] = random.sample(range(1, 1000000), len(countries))
+    countries['duration'] = countries['duration'] % 30
+
+    # create duration bins. The duration bins are <=4, [5,10], [11,17], >=18
+    durBins = np.array([4, 10, 17])
+
+    # find in which 'duration group' belongs each country
+    countries['durGroup'] = np.digitize(countries['duration'], durBins, right=True)
 
     # loop to suggest countries to user, based on the duration of their vacation.
     dur = -1
@@ -47,42 +50,38 @@ def NextDestinations():
         except ValueError:
             print('Eeem...You know you need to type in a number right??! Try again you dumbass!\n')
 
-    # create duration bins. The duration bins are <4, 5-10, 11-17, 18>
-    durBins = np.array([4, 10, 17])
+    # find in which group does the selected duration belong
+    durGroup = np.digitize(dur, durBins, right=True)
 
-    # find in which 'duration group' belong the days the user suggested
-    durGroup = np.digitize(dur,durBins, right=True)
-
-    # search only in the countries that belong in the duration bins that are lower or equal to the duration input
-    # from the user.
-    countries = countries[countries['duration'] <= dur]
+    # search only in the countries that belong in the duration bins that are lower or equal to the duration input from the user.
+    countries = countries[countries['durGroup'] == durGroup]
 
     # group countries based on their 'continent'
     continents = countries.groupby(by='continent')
 
     options = []
     for cont, contData in continents:
-
         # pick a random number that corresponds to the country
-        iindx = random.randint(0,len(contData)-1)
+        iindx = random.randint(0, len(contData) - 1)
         selectCountry = contData.iloc[iindx:iindx+1, :]
 
         # this is just a test that the class object works fine. It will be removed.
-        tempCountry = Country(name=selectCountry.index[0], willingness=selectCountry['willingness'], continent=selectCountry['continent'])
+        tempCountry = Country(name=selectCountry.index[0], willingness=selectCountry.loc[selectCountry.index[0], 'willingness'],
+                              continent=selectCountry.loc[selectCountry.index[0], 'continent'])
         tempCountry.status()
 
         # append selected countries in a list
         options.append(selectCountry)
 
     # concat list with selected countries and sort them based on 'willingness'
-    SixCountries = pd.concat(options,axis='index')
+    SixCountries = pd.concat(options, axis='index')
     SixCountries.sort_values(by='willingness', inplace=True, ascending=False)
 
     # print the 6 selected countries.
     print(SixCountries.index.tolist())
 
     # pick winner
-    winner = SixCountries.iloc[:1,:]
+    winner = SixCountries.iloc[:1, :]
 
     # check if website exists for this country exists in Lonely Planet
     searchStr = winner.index[0].replace(" ", "-").lower()
@@ -96,7 +95,6 @@ def NextDestinations():
     # if it doesnt exist, search lonely planet for threads related to the country
     else:
         webbrowser.open('https://www.lonelyplanet.com/search?q=' + searchStr)
-
 
     print('end')
 
