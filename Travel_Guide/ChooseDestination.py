@@ -6,7 +6,7 @@ import matplotlib
 import webbrowser
 import urllib3
 
-
+# comment
 class Country:
     def __init__(self, name, willingness,continent):
         self.name = name
